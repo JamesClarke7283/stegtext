@@ -1,4 +1,7 @@
-use fltk::{app, button::Button, frame::Frame, input::MultilineInput, prelude::*, window::Window};
+use fltk::{
+    app, app::Sender, button::Button, enums::Shortcut, frame::Frame, input::MultilineInput,
+    menu::MenuBar, menu::MenuFlag, prelude::*, window::Window,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use stego_wps::{compare, decode, encode};
@@ -7,6 +10,19 @@ fn main() {
     let app = app::App::default();
     let mut win = Window::default().with_size(800, 600).with_label("StegText");
     win.make_resizable(true);
+
+    let mut menu_bar = MenuBar::new(0, 0, 800, 30, "");
+    let (sender, receiver) = app::channel::<()>();
+
+    menu_bar.add_emit("&File/Exit", Shortcut::None, MenuFlag::Normal, sender, ());
+    /* To be implemented later.
+    menu_bar.add_choice("&Help/User Guide", 0, move |_| {
+        // Logic to show User Guide window
+    });
+    menu_bar.add_choice("&Help/Troubleshooting", 0, move |_| {
+        // Logic to show Troubleshooting window
+    });
+    */
 
     let cover_input = MultilineInput::new(10, 10, 780, 200, "Cover Text:");
     let secret_input = MultilineInput::new(10, 220, 780, 200, "Secret Text:");
@@ -52,6 +68,12 @@ fn main() {
 
     win.end();
     win.show();
+    while app.wait() {
+        if let Some(msg) = receiver.recv() {
+            // Do something with msg, like quit the app
+            app.quit();
+        }
+    }
     app.run().unwrap();
 }
 

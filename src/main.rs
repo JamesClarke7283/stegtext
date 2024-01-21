@@ -21,7 +21,7 @@ fn main() {
 
     let pack = Pack::new(220, 430, 560, 40, "");
 
-    let check_button = Button::new(0, 0, 200, 40, "Check");
+    let mut check_button = Button::new(0, 0, 200, 40, "Check");
 
     let encode_mode_clone = encode_mode.clone();
     check_button.set_callback(move |_| {

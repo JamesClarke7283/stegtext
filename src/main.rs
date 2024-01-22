@@ -1,80 +1,90 @@
 use fltk::{
-    app, app::Sender, button::Button, enums::Shortcut, frame::Frame, input::MultilineInput,
-    menu::MenuBar, menu::MenuFlag, prelude::*, window::Window,
+    app, button::Button, enums::*, frame::Frame, input::MultilineInput, menu::*, prelude::*,
+    window::Window,
 };
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 use stego_wps::{compare, decode, encode};
 
 fn main() {
     let app = app::App::default();
     let mut win = Window::default().with_size(800, 600).with_label("StegText");
-    win.make_resizable(true);
 
     let mut menu_bar = MenuBar::new(0, 0, 800, 30, "");
-    let (sender, receiver) = app::channel::<()>();
+    let (sender, receiver) = app::channel::<()>(); // Corrected line
 
     menu_bar.add_emit("&File/Exit", Shortcut::None, MenuFlag::Normal, sender, ());
-    /* To be implemented later.
-    menu_bar.add_choice("&Help/User Guide", 0, move |_| {
-        // Logic to show User Guide window
-    });
-    menu_bar.add_choice("&Help/Troubleshooting", 0, move |_| {
-        // Logic to show Troubleshooting window
-    });
-    */
 
-    let cover_input = MultilineInput::new(10, 10, 780, 200, "Cover Text:");
-    let secret_input = MultilineInput::new(10, 220, 780, 200, "Secret Text:");
-    let compare_output = Rc::new(RefCell::new(Frame::new(10, 550, 780, 40, "")));
-    let toggle_button = Rc::new(RefCell::new(Button::new(10, 430, 200, 40, "Encode On")));
+    let secret_input = Rc::new(RefCell::new(MultilineInput::new(
+        10,
+        40,
+        380,
+        200,
+        "Secret Text:",
+    )));
+    let cover_input = Rc::new(RefCell::new(MultilineInput::new(
+        410,
+        40,
+        380,
+        200,
+        "Cover Text:",
+    )));
+
     let output_display = Rc::new(RefCell::new(MultilineInput::new(
-        10, 480, 780, 60, "Output:",
+        10, 250, 780, 290, "Output:",
     )));
     output_display
         .borrow_mut()
         .set_value("The output will appear here");
     output_display.borrow_mut().set_readonly(true);
+    output_display.borrow_mut().set_frame(FrameType::FlatBox);
+
+    let compare_output = Rc::new(RefCell::new(Frame::new(10, 550, 780, 40, "")));
+
+    let toggle_button = Rc::new(RefCell::new(Button::new(10, 500, 200, 40, "Encode")));
 
     let encode_mode = Rc::new(RefCell::new(true));
+
+    // You need to clone outside of the closure to avoid moving the original Rc into the closure
     let toggle_button_clone = toggle_button.clone();
+    let encode_mode_clone = encode_mode.clone();
+    let cover_input_clone = cover_input.clone();
+    let secret_input_clone = secret_input.clone();
+    let output_display_clone = output_display.clone();
+    let compare_output_clone = compare_output.clone();
 
     toggle_button.borrow_mut().set_callback({
         let encode_mode_clone = encode_mode.clone();
         let cover_input_clone = cover_input.clone();
         let secret_input_clone = secret_input.clone();
-        let output_display = output_display.clone();
-        let compare_output = compare_output.clone();
+        let output_display_clone = output_display.clone();
+        let compare_output_clone = compare_output.clone();
 
         move |_| {
-            let mode = *encode_mode_clone.borrow();
-            let label = if mode { "Encode On" } else { "Decode On" };
+            let mut mode = encode_mode_clone.borrow_mut();
+            *mode = !*mode;
+            let label = if *mode { "Encode On" } else { "Decode Off" };
             toggle_button_clone.borrow_mut().set_label(label);
 
-            // Clone the Rc objects inside the closure
-            let output_display_clone = output_display.clone();
-            let compare_output_clone = compare_output.clone();
-
-            // Call the update_output function
+            // Call the update_output function with dereferenced mode
+            // and borrow the Rc<RefCell<>> here inside the closure
             update_output(
-                &cover_input_clone,
-                &secret_input_clone,
-                output_display_clone,
-                compare_output_clone,
-                mode,
+                &cover_input_clone.borrow(),
+                &secret_input_clone.borrow(),
+                output_display_clone.clone(),
+                compare_output_clone.clone(),
+                *mode,
             );
         }
     });
 
     win.end();
     win.show();
+
     while app.wait() {
-        if let Some(msg) = receiver.recv() {
-            // Do something with msg, like quit the app
+        if receiver.recv().is_some() {
             app.quit();
         }
     }
-    app.run().unwrap();
 }
 
 fn update_output(
